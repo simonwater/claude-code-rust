@@ -22,7 +22,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let client = Client::with_config(config);
     let read_tool = get_read_tool();
-    let request = json!({
+    let mut request = json!({
         "messages": [
             {
                 "role": "user",
@@ -32,22 +32,33 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "model": model,
         "tools": [read_tool],
     });
-    let response: Value = client.chat().create_byot(request).await?;
 
-    if let Some(func) = response["choices"][0]["message"]["tool_calls"][0].get("function") {
-        let fn_name = func["name"].as_str().ok_or("function tool missing name")?;
-        let arg_str = func["arguments"]
-            .as_str()
-            .ok_or("function tool missing arguments")?;
-        let args: Value = serde_json::from_str(arg_str)?;
-        let out = tools::execute_tool(fn_name, args)?;
-        if let Some(content) = out.as_str() {
-            print!("{}", content);
+    loop {
+        let response: Value = client.chat().create_byot(request.clone()).await?;
+        let resp_message = &response["choices"][0]["message"];
+
+        let req_messages = request["messages"].as_array_mut().unwrap();
+        req_messages.push(resp_message.clone());
+
+        if let Some(tool_calls) = resp_message["tool_calls"].as_array() {
+            for tool_call in tool_calls {
+                let id = tool_call["id"].as_str().unwrap();
+                let func = tool_call.get("function").unwrap();
+                let fn_name = func["name"].as_str().unwrap();
+                let arg_str = func["arguments"].as_str().unwrap();
+                let args: Value = serde_json::from_str(arg_str)?;
+                let out = tools::execute_tool(fn_name, args)?;
+                let msg = json!({
+                    "role": "tool",
+                    "tool_call_id": id,
+                    "content": out.as_str().unwrap(),
+                });
+                req_messages.push(msg);
+            }
+        } else if let Some(content) = resp_message["content"].as_str() {
+            println!("{}", content);
+            break;
         }
-    }
-
-    if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
-        println!("{}", content);
     }
 
     Ok(())

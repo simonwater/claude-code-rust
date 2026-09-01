@@ -1,6 +1,0 @@
-print("aa")
-print("bb")
-print("cc")
-print("aa")
-print("bb")
-print("cc")
