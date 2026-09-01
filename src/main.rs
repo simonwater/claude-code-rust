@@ -13,29 +13,24 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-    let (base_url, api_key, model) = parse_cfg();
+    let (base_url, api_key, model) = get_cfg();
     let config = OpenAIConfig::new()
         .with_api_base(base_url)
         .with_api_key(api_key);
 
     let client = Client::with_config(config);
-
-    #[allow(unused_variables)]
-    let response: Value = client
-        .chat()
-        .create_byot(json!({
-            "messages": [
-                {
-                    "role": "user",
-                    "content": args.prompt
-                }
-            ],
-            "model": model,
-        }))
-        .await?;
-
-    // You can use print statements as follows for debugging, they'll be visible when running tests.
-    eprintln!("Logs from your program will appear here!");
+    let read_tool = get_read_tool();
+    let r = json!({
+        "messages": [
+            {
+                "role": "user",
+                "content": args.prompt
+            }
+        ],
+        "model": model,
+        "tools": [read_tool],
+    });
+    let response: Value = client.chat().create_byot(r).await?;
 
     if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
         println!("{}", content);
@@ -44,7 +39,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn parse_cfg() -> (String, String, String) {
+fn get_read_tool() -> Value {
+    let v = json!({
+      "type": "function",
+      "function": {
+        "name": "Read",
+        "description": "Read and return the contents of a file",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "file_path": {
+              "type": "string",
+              "description": "The path to the file to read"
+            }
+          },
+          "required": ["file_path"]
+        }
+      }
+    });
+    v
+}
+
+fn get_cfg() -> (String, String, String) {
     let base_url = env::var("OPENROUTER_BASE_URL")
         .unwrap_or_else(|_| "https://openrouter.ai/api/v1".to_string());
 
