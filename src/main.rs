@@ -21,7 +21,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_api_key(api_key);
 
     let client = Client::with_config(config);
-    let read_tool = get_read_tool();
     let mut request = json!({
         "messages": [
             {
@@ -30,7 +29,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         ],
         "model": model,
-        "tools": [read_tool],
+        "tools": [tools::read_tool_config(), tools::write_tool_config()],
     });
 
     loop {
@@ -47,11 +46,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let fn_name = func["name"].as_str().unwrap();
                 let arg_str = func["arguments"].as_str().unwrap();
                 let args: Value = serde_json::from_str(arg_str)?;
-                let out = tools::execute_tool(fn_name, args)?;
+                let mut out = tools::execute_tool(fn_name, args)?;
+                if out.is_null() {
+                    out = json!("Ok");
+                }
                 let msg = json!({
                     "role": "tool",
                     "tool_call_id": id,
-                    "content": out.as_str().unwrap(),
+                    "content": out,
                 });
                 req_messages.push(msg);
             }
@@ -62,27 +64,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
-}
-
-fn get_read_tool() -> Value {
-    let v = json!({
-      "type": "function",
-      "function": {
-        "name": "Read",
-        "description": "Read and return the contents of a file",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "file_path": {
-              "type": "string",
-              "description": "The path to the file to read"
-            }
-          },
-          "required": ["file_path"]
-        }
-      }
-    });
-    v
 }
 
 fn get_cfg() -> (String, String, String) {

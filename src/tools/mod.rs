@@ -1,18 +1,15 @@
+pub mod read;
+pub mod write;
+
 use anyhow::{Result, bail};
+pub use read::{exec_read, read_tool_config};
 use serde_json::Value;
-use std::fs;
+pub use write::{exec_write, write_tool_config};
 
 pub fn execute_tool(name: &str, args: Value) -> Result<Value> {
     match name {
-        "Read" => read(args),
+        "Read" => exec_read(args),
+        "Write" => exec_write(args),
         _ => bail!("unsported tool: {}", name),
     }
-}
-
-pub fn read(args: Value) -> Result<Value> {
-    if let Some(file_path) = args["file_path"].as_str() {
-        let s = fs::read_to_string(file_path)?;
-        return Ok(Value::String(s));
-    }
-    bail!("argument file_path is null")
 }
