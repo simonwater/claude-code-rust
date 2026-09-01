@@ -13,15 +13,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
-
-    let base_url = env::var("OPENROUTER_BASE_URL")
-        .unwrap_or_else(|_| "https://openrouter.ai/api/v1".to_string());
-
-    let api_key = env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| {
-        eprintln!("OPENROUTER_API_KEY is not set");
-        process::exit(1);
-    });
-
+    let (base_url, api_key, model) = parse_cfg();
     let config = OpenAIConfig::new()
         .with_api_base(base_url)
         .with_api_key(api_key);
@@ -38,17 +30,30 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                     "content": args.prompt
                 }
             ],
-            "model": "anthropic/claude-haiku-4.5",
+            "model": model,
         }))
         .await?;
 
     // You can use print statements as follows for debugging, they'll be visible when running tests.
     eprintln!("Logs from your program will appear here!");
 
-    // TODO: Uncomment the lines below to pass the first stage
-    // if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
-    //     println!("{}", content);
-    // }
+    if let Some(content) = response["choices"][0]["message"]["content"].as_str() {
+        println!("{}", content);
+    }
 
     Ok(())
+}
+
+fn parse_cfg() -> (String, String, String) {
+    let base_url = env::var("OPENROUTER_BASE_URL")
+        .unwrap_or_else(|_| "https://openrouter.ai/api/v1".to_string());
+
+    let api_key = env::var("OPENROUTER_API_KEY").unwrap_or_else(|_| {
+        eprintln!("OPENROUTER_API_KEY is not set");
+        process::exit(1);
+    });
+
+    let model =
+        env::var("OPENROUTER_MODEL").unwrap_or_else(|_| "anthropic/claude-haiku-4.5".to_string());
+    (base_url, api_key, model)
 }
