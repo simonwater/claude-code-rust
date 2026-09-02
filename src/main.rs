@@ -29,11 +29,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
         ],
         "model": model,
-        "tools": [tools::read_tool_config(), tools::write_tool_config()],
+        "tools": tools::get_all_tools(),
     });
 
+    let mut _round = 0;
     loop {
+        _round += 1;
+        //eprintln!("Round {_round} send request:\n{:#?}\n", request);
         let response: Value = client.chat().create_byot(request.clone()).await?;
+        //eprintln!("Round {_round} received response:\n{:#?}\n", response);
         let resp_message = &response["choices"][0]["message"];
 
         let req_messages = request["messages"].as_array_mut().unwrap();
@@ -86,7 +90,7 @@ mod tests {
     #[test]
     fn value_test() {
         let value = Value::Null;
-        if let Some(t) = value[11]["a"]["b"]["c"].as_array() {
+        if let Some(_) = value[11]["a"]["b"]["c"].as_array() {
             println!("ttt");
         } else {
             println!("None");
